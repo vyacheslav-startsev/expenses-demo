@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card summary">
+  <nav class="month">
+    <a href="/?month={{ prev }}" aria-label="Предыдущий месяц">←</a>
+    <h1>{{ title }}</h1>
+    <a href="/?month={{ next }}" aria-label="Следующий месяц">→</a>
+  </nav>
+  <p class="total-label">Потрачено за месяц</p>
+  <p class="total">{{ total|rub }}</p>
+
+  {% if categories %}
+  <ul class="chart">
+    {% for name, sum in categories %}
+    <li>
+      <span class="chart-name">{{ name }}</span>
+      <span class="chart-bar"><span style="width: {{ (sum / top * 100)|round(1) }}%"></span></span>
+      <span class="chart-sum">{{ sum|rub }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<section class="card new">
+  <h2>Новый расход</h2>
+  <form class="add" method="post" action="/expenses">
+    <input name="amount" inputmode="decimal" placeholder="Сумма, ₽" required>
+    <input name="spent_on" type="date" value="{{ today }}" required>
+    <select name="category">
+      {% for name in all_categories %}
+      <option>{{ name }}</option>
+      {% endfor %}
+    </select>
+    <input name="note" placeholder="Комментарий">
+    <button type="submit">Добавить</button>
+  </form>
+</section>
+
+<section>
+  <h2 class="count">Расходы · {{ expenses|length }}</h2>
+  {% if expenses %}
+  <ul class="list">
+    {% for e in expenses %}
+    <li class="card row">
+      <span class="row-date">{{ e.spent_on[8:10] }}.{{ e.spent_on[5:7] }}</span>
+      <span class="row-main">
+        <span class="row-cat">{{ e.category }}</span>
+        {% if e.note %}<span class="row-note">{{ e.note }}</span>{% endif %}
+      </span>
+      <span class="row-sum">{{ e.amount_kop|rub }}</span>
+      <form method="post" action="/expenses/{{ e.id }}/delete">
+        <input type="hidden" name="month" value="{{ month }}">
+        <button class="ghost" type="submit" aria-label="Удалить">✕</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">В этом месяце расходов нет.</p>
+  {% endif %}
+</section>
+{% endblock %}
