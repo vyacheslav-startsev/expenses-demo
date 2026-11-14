@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Импорт выписки · Учёт расходов{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Импорт выписки</h1>
+  <p class="import-summary">{{ candidates|length }} к добавлению, {{ skipped|length }} пропущено</p>
+</section>
+
+<form method="post" action="/import/save">
+  <input type="hidden" name="count" value="{{ candidates|length }}">
+  {% if candidates %}
+  <ul class="list">
+    {% for r in candidates %}
+    {% set i = loop.index0 %}
+    <li class="card row import-row">
+      <input type="hidden" name="ref_{{ i }}" value="{{ r.ref }}">
+      <input type="hidden" name="spent_on_{{ i }}" value="{{ r.spent_on }}">
+      <input type="hidden" name="amount_kop_{{ i }}" value="{{ r.amount_kop }}">
+      <input type="hidden" name="note_{{ i }}" value="{{ r.note }}">
+      <input type="checkbox" name="pick" value="{{ i }}" aria-label="Добавить"{% if r.selected %} checked{% endif %}>
+      <span class="row-date">{{ r.spent_on[8:10] }}.{{ r.spent_on[5:7] }}</span>
+      <span class="row-main">
+        <span class="row-cat">{{ r.note }}</span>
+        <span class="row-note">{{ r.bank_category }}</span>
+      </span>
+      <span class="row-sum">{{ r.amount_kop|rub }}</span>
+      <select name="category_{{ i }}" aria-label="Категория">
+        {% for name in all_categories %}
+        <option value="{{ name }}"{% if name == r.category %} selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">Новых расходов в выписке нет.</p>
+  {% endif %}
+
+  {% if skipped %}
+  <h2 class="count">Пропущено · {{ skipped|length }}</h2>
+  <ul class="list">
+    {% for r in skipped %}
+    <li class="card row import-row skipped">
+      <span></span>
+      <span class="row-date">{{ r.spent_on[8:10] }}.{{ r.spent_on[5:7] }}</span>
+      <span class="row-main">
+        <span class="row-cat">{{ r.note }}</span>
+        <span class="row-note">{{ r.skip_reason }}</span>
+      </span>
+      <span class="row-sum">{{ r.amount_kop|rub }}</span>
+      <span></span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <p class="import-actions">
+    <a href="/">Отмена</a>
+    <button type="submit">Сохранить</button>
+  </p>
+</form>
+{% endblock %}

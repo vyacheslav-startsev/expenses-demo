@@ -1,14 +1,16 @@
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app import db
 from app.money import format_rub, parse_amount
+from app.statement import StatementError, parse_statement
 
 BASE = Path(__file__).parent
 
@@ -97,3 +99,50 @@ def create(
 def delete(expense_id: int, month: str = Form(...)):
     db.delete_expense(expense_id)
     return RedirectResponse(f"/?month={check_month(month)}", status_code=303)
+
+
+@app.post("/import", response_class=HTMLResponse)
+async def upload_statement(request: Request, statement: UploadFile):
+    try:
+        rows = parse_statement(await statement.read())
+    except StatementError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from None
+    known = db.known_refs([r.ref for r in rows if r.skip_reason is None])
+    rows = [
+        replace(r, skip_reason="уже загружено", selected=False) if r.ref in known else r
+        for r in rows
+    ]
+    return templates.TemplateResponse(
+        request,
+        "import.html",
+        {
+            "candidates": [r for r in rows if r.skip_reason is None],
+            "skipped": [r for r in rows if r.skip_reason is not None],
+            "all_categories": db.CATEGORIES,
+        },
+    )
+
+
+@app.post("/import/save")
+async def save_statement(request: Request):
+    form = await request.form()
+    picked = sorted({int(i) for i in form.getlist("pick") if str(i).isdigit()})
+    rows = []
+    try:
+        for i in picked:
+            day = date.fromisoformat(str(form[f"spent_on_{i}"]))
+            amount_kop = int(str(form[f"amount_kop_{i}"]))
+            category = str(form[f"category_{i}"])
+            if amount_kop <= 0:
+                raise ValueError("Сумма должна быть больше нуля")
+            if category not in db.CATEGORIES:
+                raise ValueError("Неизвестная категория")
+            rows.append((day.isoformat(), amount_kop, category,
+                         str(form[f"note_{i}"]).strip(), str(form[f"ref_{i}"])))
+    except (KeyError, ValueError) as err:
+        raise HTTPException(status_code=400, detail=f"Ошибка в строке импорта: {err}") from None
+    if not rows:
+        return RedirectResponse("/", status_code=303)
+    db.add_imported(rows)
+    latest = max(row[0] for row in rows)
+    return RedirectResponse(f"/?month={latest[:7]}", status_code=303)

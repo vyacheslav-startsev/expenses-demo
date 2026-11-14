@@ -37,6 +37,14 @@
   </form>
 </section>
 
+<section class="card">
+  <h2>Загрузить выписку</h2>
+  <form class="upload" method="post" action="/import" enctype="multipart/form-data">
+    <input type="file" name="statement" accept=".csv" required>
+    <button type="submit">Загрузить</button>
+  </form>
+</section>
+
 <section>
   <h2 class="count">Расходы · {{ expenses|length }}</h2>
   {% if expenses %}
