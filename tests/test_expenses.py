@@ -17,6 +17,12 @@ def test_added_expense_counts_in_its_month(client):
     assert db.month_total("2026-10") == 0
 
 
+def test_accepts_amount_copied_from_page(client):
+    response = add(client, "2\u00a0180\u00a0₽")
+    assert response.status_code == 303
+    assert db.month_total("2026-11") == 218000
+
+
 def test_month_page_shows_total_and_categories(client):
     add(client, "1000", category="Продукты")
     add(client, "250,50", category="Кафе")

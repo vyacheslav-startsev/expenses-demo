@@ -1,6 +1,7 @@
 def parse_amount(text: str) -> int:
-    """Сумма из формы в копейки: «1250», «1 250,50», «99.9»."""
-    cleaned = text.replace(" ", "").replace(" ", "").replace(",", ".")
+    """Сумма из формы в копейки: «1250», «1 250,50», «99.9», «2 180 ₽»."""
+    cleaned = text.replace(" ", "").replace(" ", "").removesuffix("₽")
+    cleaned = cleaned.replace(",", ".")
     if not cleaned:
         raise ValueError("Укажите сумму")
     try:
