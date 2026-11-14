@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS expenses (
     spent_on TEXT NOT NULL,
     amount_kop INTEGER NOT NULL,
     category TEXT NOT NULL,
-    note TEXT NOT NULL DEFAULT ''
+    note TEXT NOT NULL DEFAULT '',
+    bank_ref TEXT
 )
 """
 
@@ -35,6 +36,12 @@ def connect() -> sqlite3.Connection:
 def init_db() -> None:
     with connect() as conn:
         conn.execute(SCHEMA)
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(expenses)")}
+        if "bank_ref" not in columns:
+            conn.execute("ALTER TABLE expenses ADD COLUMN bank_ref TEXT")
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS expenses_bank_ref ON expenses(bank_ref)"
+        )
 
 
 def add_expense(spent_on: str, amount_kop: int, category: str, note: str = "") -> int:
@@ -44,6 +51,33 @@ def add_expense(spent_on: str, amount_kop: int, category: str, note: str = "") -
             (spent_on, amount_kop, category, note),
         )
         return cur.lastrowid
+
+
+def known_refs(refs: list[str]) -> set[str]:
+    """Какие из ключей банковских операций уже есть в базе."""
+    if not refs:
+        return set()
+    marks = ", ".join("?" * len(refs))
+    with connect() as conn:
+        rows = conn.execute(
+            f"SELECT bank_ref FROM expenses WHERE bank_ref IN ({marks})", refs
+        ).fetchall()
+        return {row["bank_ref"] for row in rows}
+
+
+def add_imported(rows: list[tuple[str, int, str, str, str]]) -> int:
+    """Расходы из выписки: (дата, копейки, категория, комментарий, ключ).
+    Уже загруженные ключи пропускаются; возвращает число добавленных."""
+    added = 0
+    with connect() as conn:
+        for row in rows:
+            cur = conn.execute(
+                "INSERT OR IGNORE INTO expenses "
+                "(spent_on, amount_kop, category, note, bank_ref) VALUES (?, ?, ?, ?, ?)",
+                row,
+            )
+            added += cur.rowcount
+    return added
 
 
 def list_month(month: str) -> list[sqlite3.Row]:
