@@ -118,3 +118,27 @@ def test_rejects_empty_file():
 def test_rejects_bad_row_with_line_number(data):
     with pytest.raises(StatementError, match="Строка 2"):
         parse_statement(data)
+
+
+def test_short_row_is_a_statement_error():
+    data = f"{HEADER}\n11.11.2026 19:42:10;11.11.2026;*4417;OK\n".encode("utf-8")
+    with pytest.raises(StatementError, match="Строка 2"):
+        parse_statement(data)
+
+
+def test_zero_amount_is_skipped():
+    (row,) = parse_statement(one_row(amount="0,00", note="Проверка карты"))
+    assert (row.skip_reason, row.selected, row.amount_kop) == ("нулевая сумма", False, 0)
+
+
+def test_bad_date_message_in_russian():
+    with pytest.raises(StatementError, match="ДД.ММ.ГГГГ ЧЧ:ММ:СС"):
+        parse_statement(one_row(when="11.11.2026 19:42"))
+
+
+def test_note_whitespace_collapsed():
+    data = (f'{HEADER}\n09.11.2026 13:05:12;09.11.2026;*4417;OK;-100,00;RUB;Кино;7832;'
+            f'"Кино\nОктябрь  зал 2"\n').encode("utf-8")
+    (row,) = parse_statement(data)
+    assert row.note == "Кино Октябрь зал 2"
+    assert row.ref.endswith("|Кино Октябрь зал 2")

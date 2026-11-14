@@ -74,16 +74,23 @@ def parse_statement(data: bytes) -> list[StatementRow]:
     return rows
 
 
-def _parse_record(record: dict[str, str]) -> StatementRow:
-    when = datetime.strptime(record["Дата операции"].strip(), "%d.%m.%Y %H:%M:%S")
+def _parse_record(record: dict[str, str | None]) -> StatementRow:
+    if any(record.get(column) is None for column in COLUMNS):
+        raise ValueError("не хватает колонок")
+    try:
+        when = datetime.strptime(record["Дата операции"].strip(), "%d.%m.%Y %H:%M:%S")
+    except ValueError:
+        raise ValueError("дата операции должна быть в формате ДД.ММ.ГГГГ ЧЧ:ММ:СС") from None
     amount_text = record["Сумма операции"].strip()
     is_expense = amount_text.startswith("-")
-    amount_kop = parse_amount(amount_text.removeprefix("-"))
-    note = record["Описание"].strip()
+    amount_kop = _parse_bank_amount(amount_text.removeprefix("-"))
+    note = " ".join(record["Описание"].split())
     bank_category = record["Категория"].strip()
 
     if record["Статус"].strip() != "OK":
         skip_reason = "не прошла"
+    elif amount_kop == 0:
+        skip_reason = "нулевая сумма"
     elif not is_expense:
         skip_reason = "зачисление"
     elif record["Валюта операции"].strip() != "RUB":
@@ -102,3 +109,10 @@ def _parse_record(record: dict[str, str]) -> StatementRow:
         selected=skip_reason is None and bank_category != TRANSFERS,
         skip_reason=skip_reason,
     )
+
+
+def _parse_bank_amount(text: str) -> int:
+    """Модуль суммы в копейках; в отличие от ручного ввода, ноль допустим."""
+    if text and not text.strip("0,. "):
+        return 0
+    return parse_amount(text)
