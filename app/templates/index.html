@@ -24,15 +24,16 @@
 
 <section class="card new">
   <h2>Новый расход</h2>
+  {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
   <form class="add" method="post" action="/expenses">
-    <input name="amount" inputmode="decimal" placeholder="Сумма, ₽" required>
-    <input name="spent_on" type="date" value="{{ today }}" required>
+    <input name="amount" inputmode="decimal" placeholder="Сумма, ₽" value="{{ form.amount or '' }}" required{% if error %} autofocus{% endif %}>
+    <input name="spent_on" type="date" value="{{ form.spent_on }}" required>
     <select name="category">
       {% for name in all_categories %}
-      <option>{{ name }}</option>
+      <option{% if name == form.category %} selected{% endif %}>{{ name }}</option>
       {% endfor %}
     </select>
-    <input name="note" placeholder="Комментарий">
+    <input name="note" placeholder="Комментарий" value="{{ form.note or '' }}">
     <button type="submit">Добавить</button>
   </form>
 </section>

@@ -37,6 +37,32 @@ def test_rejects_bad_amount_and_unknown_category(client):
     assert db.month_total("2026-11") == 0
 
 
+def test_bad_amount_shows_form_with_error_and_entered_values(client):
+    response = add(client, "много", category="Кафе", note="обед")
+    assert response.status_code == 400
+    assert "text/html" in response.headers["content-type"]
+    page = response.text
+    assert "Не понимаю сумму: много" in page
+    assert 'value="много"' in page
+    assert 'value="обед"' in page
+    assert 'value="2026-11-03"' in page
+    assert "<option selected>Кафе</option>" in page
+    assert "Ноябрь 2026" in page
+
+
+def test_bad_date_shows_russian_error(client):
+    response = add(client, "100", spent_on="вчера")
+    assert response.status_code == 400
+    assert "Укажите дату" in response.text
+    assert 'value="100"' in response.text
+
+
+def test_unknown_category_shows_error_on_page(client):
+    response = add(client, "100", category="Казино")
+    assert response.status_code == 400
+    assert "Неизвестная категория" in response.text
+
+
 def test_delete_expense(client):
     add(client, "500")
     expense_id = db.list_month("2026-11")[0]["id"]

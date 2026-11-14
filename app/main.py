@@ -54,11 +54,13 @@ def check_month(month: str | None) -> str:
     return f"{year:04d}-{mon:02d}"
 
 
-@app.get("/", response_class=HTMLResponse)
-def index(request: Request, month: str | None = None):
-    month = check_month(month)
+def render_month(
+    request: Request, month: str, *, form: dict | None = None,
+    error: str | None = None, status_code: int = 200,
+) -> HTMLResponse:
     categories = db.by_category(month)
     top = categories[0][1] if categories else 0
+    today = date.today().isoformat()
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -72,25 +74,39 @@ def index(request: Request, month: str | None = None):
             "categories": categories,
             "top": top,
             "all_categories": db.CATEGORIES,
-            "today": date.today().isoformat(),
+            "form": form or {"spent_on": today},
+            "error": error,
         },
+        status_code=status_code,
     )
+
+
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request, month: str | None = None):
+    return render_month(request, check_month(month))
 
 
 @app.post("/expenses")
 def create(
+    request: Request,
     spent_on: str = Form(...),
     amount: str = Form(...),
     category: str = Form(...),
     note: str = Form(""),
 ):
+    day = None
     try:
-        day = date.fromisoformat(spent_on)
+        try:
+            day = date.fromisoformat(spent_on)
+        except ValueError:
+            raise ValueError("Укажите дату в формате ГГГГ-ММ-ДД") from None
         amount_kop = parse_amount(amount)
+        if category not in db.CATEGORIES:
+            raise ValueError("Неизвестная категория")
     except ValueError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from None
-    if category not in db.CATEGORIES:
-        raise HTTPException(status_code=400, detail="Неизвестная категория")
+        month = f"{day:%Y-%m}" if day else check_month(None)
+        form = {"spent_on": spent_on, "amount": amount, "category": category, "note": note}
+        return render_month(request, month, form=form, error=str(err), status_code=400)
     db.add_expense(day.isoformat(), amount_kop, category, note.strip())
     return RedirectResponse(f"/?month={day:%Y-%m}", status_code=303)
 
