@@ -1,3 +1,5 @@
+import re
+
 from app import db
 
 
@@ -68,3 +70,18 @@ def test_delete_expense(client):
     expense_id = db.list_month("2026-11")[0]["id"]
     client.post(f"/expenses/{expense_id}/delete", data={"month": "2026-11"})
     assert db.list_month("2026-11") == []
+
+
+def date_input(page):
+    return re.search(r'<input name="spent_on"[^>]*>', page).group(0)
+
+
+def test_fresh_form_marks_date_for_auto_refresh(client):
+    page = client.get("/?month=2026-09").text
+    assert "data-auto-today" in date_input(page)
+
+
+def test_form_after_error_keeps_entered_date_without_auto_refresh(client):
+    page = add(client, "много", spent_on="2026-09-03").text
+    assert 'value="2026-09-03"' in page
+    assert "data-auto-today" not in date_input(page)

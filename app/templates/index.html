@@ -27,7 +27,7 @@
   {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
   <form class="add" method="post" action="/expenses">
     <input name="amount" inputmode="decimal" placeholder="Сумма, ₽" value="{{ form.amount or '' }}" required{% if error %} autofocus{% endif %}>
-    <input name="spent_on" type="date" value="{{ form.spent_on }}" required>
+    <input name="spent_on" type="date" value="{{ form.spent_on }}" required{% if not error %} data-auto-today{% endif %}>
     <select name="category">
       {% for name in all_categories %}
       <option{% if name == form.category %} selected{% endif %}>{{ name }}</option>
@@ -69,4 +69,29 @@
   <p class="empty">В этом месяце расходов нет.</p>
   {% endif %}
 </section>
+<script>
+  // Дата по умолчанию — сегодняшняя по часам браузера. Если вкладка пролежала
+  // со вчера, при возвращении на неё дата сдвигается на сегодня. Дату, которую
+  // выбрали руками, не трогаем.
+  (() => {
+    const input = document.querySelector("input[data-auto-today]");
+    if (!input) return;
+    const today = () => {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
+    let auto = input.value;
+    const touched = () => { auto = null; };
+    input.addEventListener("input", touched);
+    input.addEventListener("change", touched);
+    const refresh = () => {
+      if (auto !== null && input.value === auto) input.value = auto = today();
+    };
+    refresh();
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+    window.addEventListener("pageshow", refresh);
+    window.addEventListener("focus", refresh);
+  })();
+</script>
 {% endblock %}
