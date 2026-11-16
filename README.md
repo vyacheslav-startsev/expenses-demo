@@ -8,6 +8,8 @@
 до Superpowers, оно помечено тегом `etalon`. Дальше по истории коммитов видно, как Superpowers
 в Claude Code добавлял импорт банковской выписки: спеки и планы он кладёт в `docs/superpowers/`.
 
+Выпуск на YouTube: [Superpowers для Claude Code: сначала brainstorming, потом код](https://youtu.be/L85NC_J7GSc).
+
 ## Запуск
 
 ```bash
